@@ -28,21 +28,6 @@ def load_google_drive_excel(file_url):
         st.error(f"Error loading Excel file from Google Drive: {e}")
         return None
 
-# Fungsi untuk mengambil data saham
-def get_stock_data(ticker, start_date, end_date):
-    try:
-        stock = yf.Ticker(f"{ticker}.JK")
-        start_date_str = start_date.strftime('%Y-%m-%d')
-        end_date_str = end_date.strftime('%Y-%m-%d')
-        data = stock.history(start=start_date_str, end=end_date_str)
-        if data.empty:
-            st.warning(f"No data found for {ticker} in the given date range.")
-            return None
-        return data
-    except Exception as e:
-        st.error(f"Error fetching data for {ticker}: {str(e)}")
-        return None
-
 # Fungsi untuk mendeteksi pola Mat Hold
 def detect_mat_hold(data):
     if len(data) >= 5:
@@ -96,7 +81,7 @@ def main():
         st.error("Failed to load data or 'Ticker' column is missing.")
         return
     
-    tickers = df['Ticker'].tolist()
+    tickers = [f"{ticker}.JK" for ticker in df['Ticker'].tolist()]  # Tambahkan ".JK" untuk saham Indonesia
     total_tickers = len(tickers)
     
     # Date input
@@ -110,21 +95,31 @@ def main():
         progress_bar = st.progress(0)
         progress_text = st.empty()  # Placeholder untuk menampilkan persentase
         
+        # Mengambil data untuk semua ticker sekaligus (mode batch)
+        try:
+            st.info("Fetching stock data in batch mode...")
+            batch_data = yf.download(tickers, start=start_date, end=end_date, group_by='ticker')
+        except Exception as e:
+            st.error(f"Error fetching batch data: {e}")
+            return
+        
+        # Proses setiap ticker
         for i, ticker in enumerate(tickers):
-            data = get_stock_data(ticker, start_date, end_date)
-            if data is not None and not data.empty:
-                if detect_mat_hold(data):
-                    # Simpan hasil saham yang memenuhi kriteria
+            ticker_clean = ticker.replace(".JK", "")  # Hapus ".JK" untuk hasil akhir
+            ticker_data = batch_data[ticker] if ticker in batch_data else None
+            
+            if ticker_data is not None and not ticker_data.empty:
+                if detect_mat_hold(ticker_data):
                     results.append({
-                        "Ticker": ticker,
-                        "Last Close": data['Close'][-1],
+                        "Ticker": ticker_clean,
+                        "Last Close": ticker_data['Close'][-1],
                         "Pattern Detected": "Mat Hold"
                     })
             
-            # Hitung persentase kemajuan
+            # Update progress bar
             progress = (i + 1) / total_tickers
             progress_bar.progress(progress)
-            progress_text.text(f"Progress: {int(progress * 100)}%")  # Tampilkan persentase
+            progress_text.text(f"Progress: {int(progress * 100)}%")
         
         # Display results
         if results:
