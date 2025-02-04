@@ -93,6 +93,9 @@ def main():
         progress_bar = st.progress(0)
         progress_text = st.empty()  # Placeholder untuk menampilkan persentase
         
+        # Variabel untuk menyimpan data BBCA
+        bbc_data = None
+        
         # Proses setiap ticker
         for i, ticker in enumerate(tickers):
             ticker_clean = ticker.replace(".JK", "")  # Hapus ".JK" untuk hasil akhir
@@ -111,6 +114,10 @@ def main():
                 else:
                     st.warning(f"Not enough trading data for {ticker_clean} in the given date range.")
                     continue
+                
+                # Simpan data BBCA jika ticker adalah BBCA
+                if ticker_clean == "BBCA":
+                    bbc_data = data  # Simpan data BBCA
                 
                 # Deteksi pola Mat Hold
                 if detect_mat_hold(data):
@@ -134,6 +141,14 @@ def main():
             st.dataframe(results_df)
         else:
             st.info("No stocks match the Mat Hold pattern.")
+        
+        # Bagian terpisah untuk menampilkan data BBCA
+        st.subheader("Separate Result for BBCA")
+        if bbc_data is not None and not bbc_data.empty:
+            st.write("Data Retrieved for BBCA:")
+            st.dataframe(bbc_data)  # Menampilkan data BBCA dalam bagian terpisah
+        else:
+            st.warning("No data retrieved for BBCA.")
 
 if __name__ == "__main__":
     main()
